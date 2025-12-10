@@ -50,7 +50,7 @@ def health_check():
     """Endpoint di health check"""
     return jsonify({
         'status': 'healthy',
-        'service': 'openstack-forecasting-plugin',
+        'service': 'forecasting_plugin',
         'version': '1.0.0',
         'timestamp': datetime.now().isoformat(),
         'metrics_collected': {
