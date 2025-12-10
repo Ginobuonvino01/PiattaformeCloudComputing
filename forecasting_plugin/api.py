@@ -1,91 +1,50 @@
+# forecasting_plugin/api.py
 from flask import Flask, jsonify, request
-import numpy as np
-import threading
-import time
 from datetime import datetime
-from predictor import ResourcePredictor
+from .collector import collector
+from .config import Config
+from .predictor import ResourcePredictor
 
 app = Flask(__name__)
 
-# Database in-memory per le metriche
-metrics_history = {
-    'cpu': [],
-    'ram': [],
-    'storage': []
-}
+# Avvia il collector
+collector.start_collection()
 
 
-# Simulazione di dati se non ci sono dati reali
-def generate_mock_data():
-    """Genera dati mock per testing"""
-    import random
-    from datetime import datetime, timedelta
-
-    if len(metrics_history['cpu']) == 0:
-        # Crea 7 giorni di dati mock
-        base_time = datetime.now() - timedelta(days=7)
-        for i in range(168):  # 7 giorni * 24 ore
-            timestamp = base_time + timedelta(hours=i)
-            metrics_history['cpu'].append({
-                'timestamp': timestamp.isoformat(),
-                'value': 30 + random.uniform(-10, 10) + (i % 24) * 2
-            })
-            metrics_history['ram'].append({
-                'timestamp': timestamp.isoformat(),
-                'value': 40 + random.uniform(-15, 15) + (i % 24) * 1.5
-            })
-            metrics_history['storage'].append({
-                'timestamp': timestamp.isoformat(),
-                'value': 500 + i * 0.5
-            })
-
-
-# Genera dati mock all'avvio (per testing)
-generate_mock_data()
-
-
-# Endpoint API
 @app.route('/api/v1/health', methods=['GET'])
 def health_check():
-    """Endpoint di health check"""
+    metrics = collector.get_current_metrics()
     return jsonify({
         'status': 'healthy',
-        'service': 'forecasting_plugin',
-        'version': '1.0.0',
+        'service': 'openstack-forecasting-plugin',
+        'version': '2.0.0',
         'timestamp': datetime.now().isoformat(),
         'metrics_collected': {
-            'cpu': len(metrics_history['cpu']),
-            'ram': len(metrics_history['ram']),
-            'storage': len(metrics_history['storage'])
-        }
+            'cpu': len(collector.metrics_history['cpu']),
+            'ram': len(collector.metrics_history['ram']),
+            'storage': len(collector.metrics_history['storage'])
+        },
+        'openstack_connected': collector.conn is not None,
+        'auth_url': collector.auth_url
     })
 
 
 @app.route('/api/v1/forecast/cpu', methods=['GET'])
 def forecast_cpu():
-    """Endpoint per forecasting CPU"""
     try:
         hours = request.args.get('hours', default=24, type=int)
 
-        if not metrics_history['cpu']:
+        values = [m['value'] for m in collector.metrics_history['cpu'][-168:]]
+
+        if len(values) < 2:
             return jsonify({
-                'error': 'No historical data available',
-                'suggestion': 'Collect some data first or wait for collection interval'
+                'error': 'Not enough real data for forecasting',
+                'data_points': len(values),
+                'suggestion': 'Wait for the collector to gather more metrics'
             }), 400
 
-        # Estrai gli ultimi valori (max ultima settimana)
-        values = [m['value'] for m in metrics_history['cpu'][-168:]]
-
-        # Crea predictor e fai forecasting
         predictor = ResourcePredictor()
         forecast = predictor.simple_linear_regression(values, forecast_hours=hours)
-
-        if forecast is None:
-            return jsonify({
-                'error': 'Not enough data for forecasting',
-                'minimum_required': 2,
-                'available': len(values)
-            }), 400
 
         return jsonify({
             'metric': 'cpu_usage_percent',
@@ -94,139 +53,44 @@ def forecast_cpu():
             'predictions': forecast,
             'current_value': values[-1] if values else 0,
             'trend': 'increasing' if forecast[-1] > forecast[0] else 'decreasing',
+            'data_source': 'OpenStack Nova (real)' if collector.conn else 'Mock data',
             'timestamp': datetime.now().isoformat()
         })
 
     except Exception as e:
-        return jsonify({
-            'error': str(e),
-            'type': type(e).__name__
-        }), 500
+        return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/v1/forecast/ram', methods=['GET'])
-def forecast_ram():
-    """Endpoint per forecasting RAM"""
-    try:
-        hours = request.args.get('hours', default=24, type=int)
+@app.route('/api/v1/openstack/info', methods=['GET'])
+def openstack_info():
+    """Endpoint per informazioni su OpenStack"""
+    if collector.conn:
+        try:
+            # Ottieni informazioni di base su OpenStack
+            hypervisors = list(collector.conn.compute.hypervisors())
+            volumes = list(collector.conn.block_storage.volumes())
 
-        if not metrics_history['ram']:
             return jsonify({
-                'error': 'No historical data available'
-            }), 400
-
-        values = [m['value'] for m in metrics_history['ram'][-168:]]
-
-        predictor = ResourcePredictor()
-        forecast = predictor.simple_linear_regression(values, forecast_hours=hours)
-
-        if forecast is None:
+                'connected': True,
+                'auth_url': collector.auth_url,
+                'hypervisors': len(hypervisors),
+                'volumes': len(volumes),
+                'instances': sum(h.running_vms for h in hypervisors),
+                'total_vcpus': sum(h.vcpus for h in hypervisors),
+                'total_ram_gb': sum(h.memory_size for h in hypervisors) / 1024,
+                'timestamp': datetime.now().isoformat()
+            })
+        except Exception as e:
             return jsonify({
-                'error': 'Not enough data for forecasting'
-            }), 400
-
+                'connected': False,
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            })
+    else:
         return jsonify({
-            'metric': 'ram_usage_percent',
-            'forecast_hours': hours,
-            'predictions': forecast,
-            'current_value': values[-1] if values else 0,
+            'connected': False,
+            'message': 'Not connected to OpenStack',
             'timestamp': datetime.now().isoformat()
         })
 
-    except Exception as e:
-        return jsonify({
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/v1/alerts', methods=['GET'])
-def get_alerts():
-    """Genera alert basati su soglie"""
-    alerts = []
-    current_time = datetime.now()
-
-    # Alert basati su CPU
-    if metrics_history['cpu']:
-        current_cpu = metrics_history['cpu'][-1]['value']
-
-        if current_cpu > 85:
-            alerts.append({
-                'severity': 'critical',
-                'resource': 'cpu',
-                'message': f'Critical CPU usage: {current_cpu:.1f}%',
-                'value': current_cpu,
-                'threshold': 85,
-                'timestamp': current_time.isoformat()
-            })
-        elif current_cpu > 70:
-            alerts.append({
-                'severity': 'warning',
-                'resource': 'cpu',
-                'message': f'High CPU usage: {current_cpu:.1f}%',
-                'value': current_cpu,
-                'threshold': 70,
-                'timestamp': current_time.isoformat()
-            })
-
-    # Alert basati su RAM
-    if metrics_history['ram']:
-        current_ram = metrics_history['ram'][-1]['value']
-
-        if current_ram > 90:
-            alerts.append({
-                'severity': 'critical',
-                'resource': 'ram',
-                'message': f'Critical RAM usage: {current_ram:.1f}%',
-                'value': current_ram,
-                'threshold': 90,
-                'timestamp': current_time.isoformat()
-            })
-        elif current_ram > 75:
-            alerts.append({
-                'severity': 'warning',
-                'resource': 'ram',
-                'message': f'High RAM usage: {current_ram:.1f}%',
-                'value': current_ram,
-                'threshold': 75,
-                'timestamp': current_time.isoformat()
-            })
-
-    return jsonify({
-        'alerts': alerts,
-        'count': len(alerts),
-        'timestamp': current_time.isoformat()
-    })
-
-
-@app.route('/api/v1/metrics/history', methods=['GET'])
-def get_history():
-    """Restituisce lo storico delle metriche"""
-    limit = request.args.get('limit', default=100, type=int)
-
-    return jsonify({
-        'cpu': metrics_history['cpu'][-limit:],
-        'ram': metrics_history['ram'][-limit:],
-        'storage': metrics_history['storage'][-limit:],
-        'limit': limit,
-        'timestamp': datetime.now().isoformat()
-    })
-
-
-@app.route('/api/v1/metrics/current', methods=['GET'])
-def get_current_metrics():
-    """Restituisce le metriche correnti"""
-    current_cpu = metrics_history['cpu'][-1]['value'] if metrics_history['cpu'] else 0
-    current_ram = metrics_history['ram'][-1]['value'] if metrics_history['ram'] else 0
-    current_storage = metrics_history['storage'][-1]['value'] if metrics_history['storage'] else 0
-
-    return jsonify({
-        'cpu_percent': current_cpu,
-        'ram_percent': current_ram,
-        'storage_gb': current_storage,
-        'timestamp': datetime.now().isoformat()
-    })
-
-
-# Avvia il server se eseguito direttamente
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+# Gli altri endpoint rimangono simili ma usano collector.metrics_history

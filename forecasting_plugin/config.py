@@ -1,3 +1,4 @@
+# forecasting_plugin/config.py
 import os
 
 
@@ -5,11 +6,11 @@ class Config:
     # OpenStack credentials
     OS_AUTH_URL = os.getenv('OS_AUTH_URL', 'http://controller:5000/v3')
     OS_USERNAME = os.getenv('OS_USERNAME', 'admin')
-    OS_PASSWORD = os.getenv('OS_PASSWORD', 'password')
+    OS_PASSWORD = os.getenv('OS_PASSWORD', 'secret')
     OS_PROJECT_NAME = os.getenv('OS_PROJECT_NAME', 'admin')
 
     # Plugin settings
-    COLLECTION_INTERVAL = 300  # secondi
+    COLLECTION_INTERVAL = int(os.getenv('COLLECTION_INTERVAL', 300))  # secondi
     HISTORY_LENGTH = 1000
     FORECAST_HORIZON = 24  # ore
 
@@ -17,3 +18,9 @@ class Config:
     API_HOST = '0.0.0.0'
     API_PORT = 5000
     DEBUG = True
+
+    # Alert thresholds
+    CPU_WARNING_THRESHOLD = 70
+    CPU_CRITICAL_THRESHOLD = 85
+    RAM_WARNING_THRESHOLD = 75
+    RAM_CRITICAL_THRESHOLD = 90
