@@ -1,52 +1,33 @@
 import numpy as np
-import pandas as pd
-from sklearn.linear_model import LinearRegression
-from statsmodels.tsa.arima.model import ARIMA
-import warnings
-
-warnings.filterwarnings('ignore')
 
 
 class ResourcePredictor:
-    def __init__(self, historical_data=None):
-        self.historical_data = historical_data or []
-
     def simple_linear_regression(self, data_points, forecast_hours=24):
-        """Regressione lineare semplice"""
+        """Regressione lineare semplice usando solo numpy"""
         if len(data_points) < 2:
-            return None
+            return [data_points[-1]] * forecast_hours if data_points else [50] * forecast_hours
 
-        X = np.array(range(len(data_points))).reshape(-1, 1)
+        x = np.arange(len(data_points))
         y = np.array(data_points)
 
-        model = LinearRegression()
-        model.fit(X, y)
+        # Calcolo manuale regressione lineare
+        n = len(x)
+        sum_x = np.sum(x)
+        sum_y = np.sum(y)
+        sum_xy = np.sum(x * y)
+        sum_x2 = np.sum(x * x)
 
-        # Previsione per le prossime N ore
-        future_X = np.array(range(len(data_points),
-                                  len(data_points) + forecast_hours)).reshape(-1, 1)
-        predictions = model.predict(future_X)
+        denominator = n * sum_x2 - sum_x * sum_x
+        if denominator == 0:
+            return [np.mean(y)] * forecast_hours
+
+        m = (n * sum_xy - sum_x * sum_y) / denominator
+        b = (sum_y - m * sum_x) / n
+
+        future_x = np.arange(n, n + forecast_hours)
+        predictions = m * future_x + b
+
+        # Clip tra 0 e 100 per percentuali
+        predictions = np.clip(predictions, 0, 100)
 
         return predictions.tolist()
-
-    def moving_average(self, data_points, window=6):
-        """Media mobile per smoothing"""
-        if len(data_points) < window:
-            return data_points
-
-        series = pd.Series(data_points)
-        return series.rolling(window=window).mean().dropna().tolist()
-
-    def predict_resource_usage(self, metric_type, historical_values, method='linear'):
-        """Predice l'uso futuro delle risorse"""
-        if method == 'linear':
-            return self.simple_linear_regression(historical_values)
-        elif method == 'arima':
-            # Implementazione base ARIMA
-            try:
-                model = ARIMA(historical_values, order=(1, 1, 1))
-                model_fit = model.fit()
-                forecast = model_fit.forecast(steps=24)
-                return forecast.tolist()
-            except:
-                return self.simple_linear_regression(historical_values)

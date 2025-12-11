@@ -1,4 +1,3 @@
-# forecasting_plugin/config.py
 import os
 
 
@@ -10,7 +9,7 @@ class Config:
     OS_PROJECT_NAME = os.getenv('OS_PROJECT_NAME', 'admin')
 
     # Plugin settings
-    COLLECTION_INTERVAL = int(os.getenv('COLLECTION_INTERVAL', 300))  # secondi
+    COLLECTION_INTERVAL = 300  # secondi
     HISTORY_LENGTH = 1000
     FORECAST_HORIZON = 24  # ore
 
@@ -20,7 +19,7 @@ class Config:
     DEBUG = True
 
     # Alert thresholds
-    CPU_WARNING_THRESHOLD = 70
-    CPU_CRITICAL_THRESHOLD = 85
-    RAM_WARNING_THRESHOLD = 75
-    RAM_CRITICAL_THRESHOLD = 90
+    CPU_WARNING = 70
+    CPU_CRITICAL = 85
+    RAM_WARNING = 75
+    RAM_CRITICAL = 90

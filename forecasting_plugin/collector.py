@@ -1,4 +1,3 @@
-# forecasting_plugin/collector.py
 import os
 import time
 import threading
@@ -10,26 +9,20 @@ class OpenStackMetricsCollector:
     """Raccoglie metriche reali da OpenStack Nova e Cinder"""
 
     def __init__(self, interval=300):
-        """
-        Inizializza il collector con le credenziali OpenStack
-        Le credenziali vengono prese da variabili d'ambiente o da config
-        """
         self.interval = interval  # secondi tra le raccolte
         self.running = False
+        self.conn = None
         self.metrics_history = {
             'cpu': [],
             'ram': [],
             'storage': []
         }
 
-        # Credenziali OpenStack (devono essere configurate)
+        # Credenziali OpenStack
         self.auth_url = os.getenv('OS_AUTH_URL', 'http://controller:5000/v3')
         self.username = os.getenv('OS_USERNAME', 'admin')
         self.password = os.getenv('OS_PASSWORD', 'secret')
         self.project_name = os.getenv('OS_PROJECT_NAME', 'admin')
-
-        # Connessione OpenStack
-        self.conn = None
 
     def connect(self):
         """Stabilisce la connessione a OpenStack"""
@@ -46,91 +39,119 @@ class OpenStackMetricsCollector:
             return True
         except Exception as e:
             print(f"❌ Errore connessione OpenStack: {e}")
-            print("Usando dati mock...")
+            print("⚠️  Userò dati mock per la demo")
             return False
 
-    def collect_nova_metrics(self):
-        """Raccoglie metriche CPU e RAM da Nova"""
-        try:
-            # Ottieni statistica degli hypervisor
-            hypervisors = list(self.conn.compute.hypervisors())
-
-            if not hypervisors:
-                print("Nessun hypervisor trovato")
-                return None
-
-            # Calcola utilizzo totale CPU
-            total_vcpus = sum(h.vcpus for h in hypervisors)
-            used_vcpus = sum(h.vcpus_used for h in hypervisors)
-            cpu_percent = (used_vcpus / total_vcpus * 100) if total_vcpus > 0 else 0
-
-            # Calcola utilizzo totale RAM
-            total_ram = sum(h.memory_size for h in hypervisors)
-            used_ram = sum(h.memory_used for h in hypervisors)
-            ram_percent = (used_ram / total_ram * 100) if total_ram > 0 else 0
-
-            return {
-                'cpu_percent': cpu_percent,
-                'ram_percent': ram_percent,
-                'hypervisor_count': len(hypervisors),
-                'instances': sum(h.running_vms for h in hypervisors)
-            }
-
-        except Exception as e:
-            print(f"❌ Errore raccolta metriche Nova: {e}")
-            return None
-
-    def collect_cinder_metrics(self):
-        """Raccoglie metriche storage da Cinder"""
-        try:
-            # Ottieni tutti i volumi
-            volumes = list(self.conn.block_storage.volumes())
-
-            total_size = sum(v.size for v in volumes)
-            available_size = sum(v.size for v in volumes if v.status == 'available')
-            in_use_size = sum(v.size for v in volumes if v.status == 'in-use')
-
-            return {
-                'total_gb': total_size,
-                'available_gb': available_size,
-                'in_use_gb': in_use_size,
-                'volume_count': len(volumes)
-            }
-
-        except Exception as e:
-            print(f"❌ Errore raccolta metriche Cinder: {e}")
-            return None
-
-    def collect_once(self):
-        """Raccoglie metriche una volta"""
+    def collect_real_metrics(self):
+        """Raccoglie metriche reali da OpenStack"""
         if not self.conn:
             if not self.connect():
                 return False
 
-        nova_metrics = self.collect_nova_metrics()
-        cinder_metrics = self.collect_cinder_metrics()
+        try:
+            # Metriche da Nova (CPU/RAM)
+            hypervisors = list(self.conn.compute.hypervisors())
+            if hypervisors:
+                total_vcpus = sum(h.vcpus for h in hypervisors)
+                used_vcpus = sum(h.vcpus_used for h in hypervisors)
+                cpu_percent = (used_vcpus / total_vcpus * 100) if total_vcpus > 0 else 0
 
-        if nova_metrics:
+                total_ram = sum(h.memory_size for h in hypervisors)
+                used_ram = sum(h.memory_used for h in hypervisors)
+                ram_percent = (used_ram / total_ram * 100) if total_ram > 0 else 0
+            else:
+                cpu_percent = ram_percent = 0
+
+            # Metriche da Cinder (Storage)
+            volumes = list(self.conn.block_storage.volumes())
+            total_storage = sum(v.size for v in volumes)
+
+            timestamp = datetime.now().isoformat()
+
             self.metrics_history['cpu'].append({
-                'timestamp': datetime.now().isoformat(),
-                'value': nova_metrics['cpu_percent']
+                'timestamp': timestamp,
+                'value': cpu_percent,
+                'source': 'openstack'
             })
+
             self.metrics_history['ram'].append({
-                'timestamp': datetime.now().isoformat(),
-                'value': nova_metrics['ram_percent']
+                'timestamp': timestamp,
+                'value': ram_percent,
+                'source': 'openstack'
             })
 
-        if cinder_metrics:
             self.metrics_history['storage'].append({
-                'timestamp': datetime.now().isoformat(),
-                'value': cinder_metrics['total_gb']
+                'timestamp': timestamp,
+                'value': total_storage,
+                'source': 'openstack'
             })
 
-        # Mantieni solo ultime 1000 letture
-        for key in self.metrics_history:
-            self.metrics_history[key] = self.metrics_history[key][-1000:]
+            print(f"📊 Metriche reali: CPU={cpu_percent:.1f}%, RAM={ram_percent:.1f}%, Storage={total_storage}GB")
+            return True
 
+        except Exception as e:
+            print(f"❌ Errore raccolta metriche reali: {e}")
+            return False
+
+    def collect_mock_metrics(self):
+        """Genera dati mock quando OpenStack non è disponibile"""
+        import random
+        import numpy as np
+
+        hour_of_day = datetime.now().hour
+        minute = datetime.now().minute
+
+        # Pattern realistico
+        time_factor = hour_of_day + minute / 60
+        cpu_val = 30 + 20 * np.sin(time_factor * np.pi / 12) + random.uniform(-5, 5)
+        ram_val = 40 + 15 * np.sin(time_factor * np.pi / 12) + random.uniform(-3, 3)
+
+        # Storage crescente
+        if self.metrics_history['storage']:
+            last_storage = self.metrics_history['storage'][-1]['value']
+            storage_val = last_storage + random.uniform(0, 0.1)
+        else:
+            storage_val = 500
+
+        timestamp = datetime.now().isoformat()
+
+        self.metrics_history['cpu'].append({
+            'timestamp': timestamp,
+            'value': max(10, min(100, cpu_val)),
+            'source': 'mock'
+        })
+
+        self.metrics_history['ram'].append({
+            'timestamp': timestamp,
+            'value': max(20, min(100, ram_val)),
+            'source': 'mock'
+        })
+
+        self.metrics_history['storage'].append({
+            'timestamp': timestamp,
+            'value': storage_val,
+            'source': 'mock'
+        })
+
+        print(f"📊 Metriche mock: CPU={cpu_val:.1f}%, RAM={ram_val:.1f}%, Storage={storage_val:.1f}GB")
         return True
+
+    def collect_once(self):
+        """Tenta di raccogliere metriche reali, altrimenti usa mock"""
+        success = False
+
+        if self.conn:
+            success = self.collect_real_metrics()
+
+        if not success:
+            success = self.collect_mock_metrics()
+
+        # Mantieni solo ultimi 1000 punti
+        for key in self.metrics_history:
+            if len(self.metrics_history[key]) > 1000:
+                self.metrics_history[key] = self.metrics_history[key][-1000:]
+
+        return success
 
     def start_collection(self):
         """Avvia la raccolta periodica in background"""
@@ -143,7 +164,7 @@ class OpenStackMetricsCollector:
 
         thread = threading.Thread(target=collection_loop, daemon=True)
         thread.start()
-        print(f"✅ Raccolta metriche avviata (intervallo: {self.interval}s)")
+        print(f"✅ Collector avviato (intervallo: {self.interval}s)")
 
     def stop_collection(self):
         """Ferma la raccolta periodica"""
@@ -160,9 +181,27 @@ class OpenStackMetricsCollector:
             if self.metrics_history[key]:
                 current[key] = self.metrics_history[key][-1]
             else:
-                current[key] = {'timestamp': datetime.now().isoformat(), 'value': 0}
+                current[key] = {'timestamp': datetime.now().isoformat(), 'value': 0, 'source': 'none'}
         return current
 
+    def get_openstack_info(self):
+        """Restituisce informazioni sulla connessione OpenStack"""
+        if self.conn:
+            try:
+                hypervisors = list(self.conn.compute.hypervisors())
+                volumes = list(self.conn.block_storage.volumes())
 
-# Collector globale
+                return {
+                    'connected': True,
+                    'auth_url': self.auth_url,
+                    'hypervisors': len(hypervisors),
+                    'volumes': len(volumes)
+                }
+            except:
+                return {'connected': False, 'error': 'Connection lost'}
+        else:
+            return {'connected': False, 'message': 'Not connected'}
+
+
+# Istanza globale
 collector = OpenStackMetricsCollector(interval=300)  # 5 minuti

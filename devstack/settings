@@ -1,0 +1,9 @@
+# forecasting plugin settings
+
+# Enable the forecasting service
+enable_service forecasting-api
+
+# Configuration
+FORECASTING_BIND_HOST=${FORECASTING_BIND_HOST:-$SERVICE_HOST}
+FORECASTING_BIND_PORT=${FORECASTING_BIND_PORT:-5005}
+FORECASTING_SERVICE_PROTOCOL=${FORECASTING_SERVICE_PROTOCOL:-$SERVICE_PROTOCOL}
