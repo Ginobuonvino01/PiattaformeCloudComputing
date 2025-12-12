@@ -112,6 +112,25 @@ def openstack_info():
     return jsonify(info)
 
 
+@app.route('/api/v1/debug/collect-now', methods=['POST'])
+def debug_collect_now():
+    """Forza una raccolta immediata delle metriche (debug)"""
+    success = collector.collect_once()
+    current = collector.get_current_metrics()
+
+    return jsonify({
+        'success': success,
+        'timestamp': datetime.now().isoformat(),
+        'metrics': {
+            'cpu': current['cpu']['value'] if 'cpu' in current else 0,
+            'ram': current['ram']['value'] if 'ram' in current else 0,
+            'storage': current['storage']['value'] if 'storage' in current else 0,
+            'source_cpu': current['cpu']['source'] if 'cpu' in current else 'none',
+            'source_ram': current['ram']['source'] if 'ram' in current else 'none',
+            'source_storage': current['storage']['source'] if 'storage' in current else 'none'
+        }
+    })
+
 if __name__ == '__main__':
     print("=" * 60)
     print("OpenStack AI Resource Forecasting Service")
