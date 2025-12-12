@@ -1,10 +1,6 @@
-"""
-OpenStack AI Resource Forecasting Plugin
-"""
+# forecasting_plugin/__init__.py
+from .collector import collector
+from .api import app
 
-from .collector import collector, OpenStackMetricsCollector
-from .predictor import ResourcePredictor
-from .config import Config
-
+__all__ = ['collector', 'app']
 __version__ = '2.0.0'
-__all__ = ['collector', 'OpenStackMetricsCollector', 'ResourcePredictor', 'Config']
