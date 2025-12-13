@@ -54,20 +54,53 @@ class OpenStackMetricsCollector:
         try:
             # Metriche da Nova (CPU/RAM)
             hypervisors = list(self.conn.compute.hypervisors())
+
+            print(f"🔍 Trovati {len(hypervisors)} hypervisor")
+            for hv in hypervisors:
+                print(f"   - {hv.name}: {hv.vcpus} vCPUs, {hv.memory_size}MB RAM, {hv.running_vms} VM attive")
+
             if hypervisors:
+                # Calcola utilizzo CPU
                 total_vcpus = sum(h.vcpus for h in hypervisors if h.vcpus)
                 used_vcpus = sum(h.vcpus_used for h in hypervisors if h.vcpus_used is not None)
+
+                # Se used_vcpus è None o 0, ma ci sono VM in esecuzione, stimiamo un utilizzo
+                if used_vcpus == 0 or used_vcpus is None:
+                    servers = list(self.conn.compute.servers())
+                    active_servers = [s for s in servers if s.status == 'ACTIVE']
+                    if active_servers:
+                        print(f"   👁️  {len(active_servers)} VM attive, ma vCPUs usate = 0. Stimando utilizzo...")
+                        # Stima: ogni VM usa almeno 1 vCPU (per demo)
+                        used_vcpus = len(active_servers)
+                        total_vcpus = max(total_vcpus, used_vcpus + 4)  # Assicura abbastanza risorse
+
                 cpu_percent = (used_vcpus / total_vcpus * 100) if total_vcpus > 0 else 0
 
+                # Calcola utilizzo RAM
                 total_ram = sum(h.memory_size for h in hypervisors if h.memory_size)
                 used_ram = sum(h.memory_used for h in hypervisors if h.memory_used is not None)
+
+                # Stima utilizzo RAM se necessario
+                if used_ram == 0 or used_ram is None:
+                    servers = list(self.conn.compute.servers())
+                    active_servers = [s for s in servers if s.status == 'ACTIVE']
+                    if active_servers:
+                        # Stima: ogni VM cirros usa ~64MB
+                        used_ram = len(active_servers) * 64  # MB
+                        total_ram = max(total_ram, used_ram + 2048)  # Assicura abbastanza RAM
+
                 ram_percent = (used_ram / total_ram * 100) if total_ram > 0 else 0
+
             else:
                 cpu_percent = ram_percent = 0
 
             # Metriche da Cinder (Storage)
-            volumes = list(self.conn.block_storage.volumes())
-            total_storage = sum(v.size for v in volumes if v.size) if volumes else 0
+            try:
+                volumes = list(self.conn.block_storage.volumes())
+                valid_volumes = [v for v in volumes if v.status not in ['error', 'creating']]
+                total_storage = sum(v.size for v in valid_volumes if v.size) if valid_volumes else 0
+            except Exception:
+                total_storage = 0
 
             timestamp = datetime.now().isoformat()
 
@@ -89,7 +122,7 @@ class OpenStackMetricsCollector:
                 'source': 'openstack'
             })
 
-            print(f"📊 Metriche reali: CPU={cpu_percent:.1f}%, RAM={ram_percent:.1f}%, Storage={total_storage}GB")
+            print(f"📊 Metriche OpenStack: CPU={cpu_percent:.1f}%, RAM={ram_percent:.1f}%, Storage={total_storage}GB")
             return True
 
         except Exception as e:

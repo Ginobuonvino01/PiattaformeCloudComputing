@@ -131,6 +131,30 @@ def debug_collect_now():
         }
     })
 
+
+@app.route('/api/v1/metrics/current', methods=['GET'])
+def get_current_metrics():
+    current = collector.get_current_metrics()
+    return jsonify({
+        'cpu_percent': current['cpu']['value'],
+        'ram_percent': current['ram']['value'],
+        'storage_gb': current['storage']['value'],
+        'data_source': current['cpu']['source'],
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/api/v1/metrics/history', methods=['GET'])
+def get_metrics_history():
+    limit = request.args.get('limit', default=100, type=int)
+    history = collector.get_metrics_history()
+
+    return jsonify({
+        'cpu': history['cpu'][-limit:],
+        'ram': history['ram'][-limit:],
+        'storage': history['storage'][-limit:],
+        'timestamp': datetime.now().isoformat()
+    })
+
 if __name__ == '__main__':
     print("=" * 60)
     print("OpenStack AI Resource Forecasting Service")
