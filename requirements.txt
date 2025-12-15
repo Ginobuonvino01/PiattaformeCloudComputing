@@ -1,3 +1,4 @@
-flask>=2.0.0
-numpy>=1.21.0
-openstacksdk>=0.61.0
+#Elenca tutte le dipendenze Python
+flask>=2.0.0 # Framework web per l'API
+numpy>=1.21.0 # Per ML
+openstacksdk>=0.61.0 # Libreria ufficiale OpenStack

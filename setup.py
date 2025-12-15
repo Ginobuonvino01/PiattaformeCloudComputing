@@ -1,12 +1,11 @@
-# setup.py (nella radice del repository)
+# Crea un pacchetto Python installabile
 from setuptools import setup, find_packages
 
 setup(
     name="openstack-forecasting-plugin",
     version="2.0.0",
     description="AI Resource Forecasting Plugin for OpenStack",
-    author="Il Tuo Nome",
-    author_email="tua@email.com",
+    author="Salvatore",
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,

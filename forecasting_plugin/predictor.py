@@ -17,13 +17,15 @@ class ResourcePredictor:
         sum_xy = np.sum(x * y)
         sum_x2 = np.sum(x * x)
 
+        #Formula
         denominator = n * sum_x2 - sum_x * sum_x
         if denominator == 0:
-            return [np.mean(y)] * forecast_hours
+            return [np.mean(y)] * forecast_hours #Se divisione per zero
 
-        m = (n * sum_xy - sum_x * sum_y) / denominator
-        b = (sum_y - m * sum_x) / n
+        m = (n * sum_xy - sum_x * sum_y) / denominator #Pendenza
+        b = (sum_y - m * sum_x) / n #Intercetta
 
+        #Calcolo previsioni future
         future_x = np.arange(n, n + forecast_hours)
         predictions = m * future_x + b
 

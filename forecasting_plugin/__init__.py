@@ -1,3 +1,4 @@
+#Trasforma la cartella in un "package" Python che si può importare
 from .collector import collector
 from .api import app
 

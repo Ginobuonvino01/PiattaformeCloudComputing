@@ -5,21 +5,21 @@
 function install_forecasting {
     echo_summary "Installing AI Forecasting Plugin"
 
-    # Install Python dependencies
+    #Installa dipendenze Python
     pip_install -r $PROGETTO_DIR/requirements.txt
 
-    # Install the package in development mode
+    #Installa il package in modalità sviluppo
     setup_develop $PROGETTO_DIR
 }
 
 function configure_forecasting {
     echo_summary "Configuring AI Forecasting Plugin"
 
-    # Create directories
+    # Crea directory
     sudo install -d -o $STACK_USER /var/log/forecasting
     sudo install -d -o $STACK_USER /etc/forecasting
 
-    # Create configuration file
+    # Crea file configurazione
     cat > /etc/forecasting/forecasting.conf << EOF
 [DEFAULT]
 debug = True
@@ -34,7 +34,7 @@ EOF
 function init_forecasting {
     echo_summary "Initializing AI Forecasting Service"
 
-    # Start the service
+    #Avvia il servizio come processo DevStack
     run_process forecasting-api "python $PROGETTO_DIR/forecasting_plugin/api.py"
 }
 

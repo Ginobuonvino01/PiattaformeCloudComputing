@@ -1,9 +1,9 @@
-# forecasting plugin settings
+# Attiva il plugin in DevStack
 
-# Enable the forecasting service
+# Abilita il servizio forecasting
 enable_service forecasting-api
 
-# Configuration
+# Configurazione
 FORECASTING_BIND_HOST=${FORECASTING_BIND_HOST:-$SERVICE_HOST}
 FORECASTING_BIND_PORT=${FORECASTING_BIND_PORT:-5005}
 FORECASTING_SERVICE_PROTOCOL=${FORECASTING_SERVICE_PROTOCOL:-$SERVICE_PROTOCOL}

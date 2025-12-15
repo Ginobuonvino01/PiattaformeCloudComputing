@@ -1,24 +1,23 @@
 import os
 
-
 class Config:
-    # OpenStack credentials
+    # Credenziali OpenStack
     OS_AUTH_URL = os.getenv('OS_AUTH_URL', 'http://localhost/identity/v3')
     OS_USERNAME = os.getenv('OS_USERNAME', 'admin')
     OS_PASSWORD = os.getenv('OS_PASSWORD', 'secret')
     OS_PROJECT_NAME = os.getenv('OS_PROJECT_NAME', 'admin')
 
-    # Plugin settings
+    # Impostazioni Plugin
     COLLECTION_INTERVAL = 60  # 1 minuto
     HISTORY_LENGTH = 1000
     FORECAST_HORIZON = 24
 
-    # API settings
+    # Impostazioni API
     API_HOST = '0.0.0.0'
     API_PORT = 5000
     DEBUG = True
 
-    # Alert thresholds - PERFETTE PER DEMO!
+    # Alert Soglie
     CPU_WARNING = 25  # 25% - Facile da raggiungere
     CPU_CRITICAL = 40  # 40%
     RAM_WARNING = 30  # 30%

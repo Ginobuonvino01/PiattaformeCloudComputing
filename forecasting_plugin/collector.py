@@ -10,9 +10,9 @@ class OpenStackMetricsCollector:
     """Raccoglie metriche reali da OpenStack Nova e Cinder"""
 
     def __init__(self, interval=60):
-        self.interval = interval
+        self.interval = interval #Ogni 60 secondi
         self.running = False
-        self.conn = None
+        self.conn = None #Connessione OpenStack
         self.metrics_history = {
             'cpu': [],
             'ram': [],
@@ -27,7 +27,6 @@ class OpenStackMetricsCollector:
         # Configurazione risorse (default per DevStack)
         self.total_vcpus = 8  # vCPUs totali nel sistema
         self.total_ram_gb = 16  # GB RAM totali nel sistema
-        self.total_storage_gb = 100  # GB Storage totali
 
         # Cache per performance
         self.flavor_cache = {}
@@ -58,13 +57,13 @@ class OpenStackMetricsCollector:
             if not self.conn:
                 return None
 
-            # Ottieni tutti i server
+            #Prende tutte le VM da OpenStack
             servers = list(self.conn.compute.servers())
-            active_servers = [s for s in servers if s.status == 'ACTIVE']
+            active_servers = [s for s in servers if s.status == 'ACTIVE'] #Filtra solo quelle ACTIVE
 
             print(f"Server trovati: {len(servers)} totali, {len(active_servers)} attivi")
 
-            # Calcola risorse allocate dai flavor
+            # Per ogni VM attiva, calcola risorse
             total_allocated_vcpus = 0
             total_allocated_ram_mb = 0
 
@@ -95,7 +94,7 @@ class OpenStackMetricsCollector:
                             'ds4G': {'vcpus': 4, 'ram_mb': 4096},
                         }
 
-                        # Usa m1.tiny come default
+                        # Usa m1.tiny come default se non trovato
                         flavor_info = flavor_map.get(flavor_name, flavor_map['m1.tiny'])
                         self.flavor_cache[flavor_key] = flavor_info
 
@@ -104,11 +103,12 @@ class OpenStackMetricsCollector:
                             f"   Server {server.name}: flavor '{flavor_name or 'default'}' -> {flavor_info['vcpus']} vCPU, {flavor_info['ram_mb']}MB RAM")
 
                     flavor_info = self.flavor_cache[flavor_key]
+                    # Somma risorse
                     total_allocated_vcpus += flavor_info['vcpus']
                     total_allocated_ram_mb += flavor_info['ram_mb']
 
                 except Exception as e:
-                    # Solo log diagnostico, non errore
+                    # Solo errore, usa valori default
                     print(f"   Server {server.name}: usando valori default (1 vCPU, 512MB)")
                     total_allocated_vcpus += 1
                     total_allocated_ram_mb += 512
@@ -132,7 +132,7 @@ class OpenStackMetricsCollector:
         if not server_info:
             return None
 
-        active_count = server_info['active_count']
+        active_count = server_info['active_count'] #Numero VM attive
         allocated_vcpus = server_info['allocated_vcpus']
         allocated_ram_gb = server_info['allocated_ram_gb']
 
@@ -150,7 +150,7 @@ class OpenStackMetricsCollector:
         vm_based_cpu = base_cpu_usage + (active_count * vm_cpu_factor)
         vm_based_ram = base_ram_usage + (active_count * vm_ram_factor)
 
-        # Calcolo basato su risorse allocate (più accurato)
+        # Calcolo basato su risorse allocate
         allocated_cpu_pct = (allocated_vcpus / self.total_vcpus) * 100
         allocated_ram_pct = (allocated_ram_gb / self.total_ram_gb) * 100
 
@@ -195,7 +195,7 @@ class OpenStackMetricsCollector:
             # Prova connessione
             if not self.conn:
                 if not self.connect():
-                    return self.collect_mock_metrics()
+                    return self.collect_mock_metrics() # Fallback a mock
 
             print("=" * 50)
             print(f"Raccolta metriche - {datetime.now().strftime('%H:%M:%S')}")
@@ -311,8 +311,8 @@ class OpenStackMetricsCollector:
 
             # Poi continua con intervallo
             while self.running:
-                time.sleep(self.interval)
-                self.collect_once()
+                time.sleep(self.interval) #Aspetta 60 secondi
+                self.collect_once() #Raccogli
 
         thread = threading.Thread(target=collection_loop, daemon=True)
         thread.start()
@@ -379,7 +379,6 @@ class OpenStackMetricsCollector:
                     'allocated_ram_gb': round(total_allocated_ram_mb / 1024, 1),
                     'system_total_vcpus': self.total_vcpus,
                     'system_total_ram_gb': self.total_ram_gb,
-                    'system_total_storage_gb': self.total_storage_gb,
                     'collection_method': 'calculated_from_servers',
                     'timestamp': datetime.now().isoformat()
                 }

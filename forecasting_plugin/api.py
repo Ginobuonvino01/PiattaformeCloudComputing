@@ -1,3 +1,4 @@
+#Crea l'API REST con Flask. 5 endpoint per monitorare OpenStack.
 from flask import Flask, jsonify, request
 from datetime import datetime
 from .collector import collector
@@ -11,14 +12,14 @@ collector.start_collection()
 
 @app.route('/api/v1/health', methods=['GET'])
 def health_check():
-    current = collector.get_current_metrics()
+    current = collector.get_current_metrics() # Chiede metriche al collector
 
     return jsonify({
         'status': 'healthy',
         'service': 'openstack-forecasting-plugin',
         'version': '2.0.0',
         'timestamp': datetime.now().isoformat(),
-        'openstack_connected': collector.conn is not None,
+        'openstack_connected': collector.conn is not None, # True se connesso
         'metrics': {
             'cpu': current['cpu']['value'] if 'cpu' in current else 0,
             'ram': current['ram']['value'] if 'ram' in current else 0,
@@ -29,17 +30,17 @@ def health_check():
 @app.route('/api/v1/forecast/cpu', methods=['GET'])
 def forecast_cpu():
     try:
-        hours = request.args.get('hours', default=24, type=int)
-        history = collector.get_metrics_history()
-        values = [m['value'] for m in history['cpu'][-168:]]
+        hours = request.args.get('hours', default=24, type=int) # Prende parametro ?hours=12
+        history = collector.get_metrics_history() # Prende storico
+        values = [m['value'] for m in history['cpu'][-168:]] # Ultime 168 ore (7 giorni)
 
         predictor = ResourcePredictor()
-        forecast = predictor.simple_linear_regression(values, hours)
+        forecast = predictor.simple_linear_regression(values, hours) #Effettua le previsioni
 
         return jsonify({
             'metric': 'cpu_usage_percent',
             'forecast_hours': hours,
-            'predictions': forecast,
+            'predictions': forecast, #Lista le previsioni
             'current_value': values[-1] if values else 0,
             'data_source': 'OpenStack' if collector.conn else 'Mock',
             'timestamp': datetime.now().isoformat()
@@ -75,7 +76,7 @@ def get_alerts():
     alerts = []
     current = collector.get_current_metrics()
 
-    # Alert CPU
+    # Alert CPU > 80%
     if 'cpu' in current:
         cpu_val = current['cpu']['value']
         if cpu_val > 80:
@@ -86,7 +87,7 @@ def get_alerts():
                 'value': cpu_val
             })
 
-    # Alert RAM
+    # Alert RAM >75%
     if 'ram' in current:
         ram_val = current['ram']['value']
         if ram_val > 75:
@@ -106,7 +107,7 @@ def get_alerts():
 
 @app.route('/api/v1/openstack/info', methods=['GET'])
 def openstack_info():
-    info = collector.get_openstack_info()
+    info = collector.get_openstack_info() # Chiede info dettagliate
     info['timestamp'] = datetime.now().isoformat()
     return jsonify(info)
 
