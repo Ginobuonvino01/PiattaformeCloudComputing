@@ -22,7 +22,6 @@ def health_check():
         'metrics': {
             'cpu': current['cpu']['value'] if 'cpu' in current else 0,
             'ram': current['ram']['value'] if 'ram' in current else 0,
-            'storage': current['storage']['value'] if 'storage' in current else 0
         }
     })
 
@@ -138,7 +137,6 @@ def get_current_metrics():
     return jsonify({
         'cpu_percent': current['cpu']['value'],
         'ram_percent': current['ram']['value'],
-        'storage_gb': current['storage']['value'],
         'data_source': current['cpu']['source'],
         'timestamp': datetime.now().isoformat()
     })
@@ -151,7 +149,6 @@ def get_metrics_history():
     return jsonify({
         'cpu': history['cpu'][-limit:],
         'ram': history['ram'][-limit:],
-        'storage': history['storage'][-limit:],
         'timestamp': datetime.now().isoformat()
     })
 

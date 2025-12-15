@@ -16,7 +16,6 @@ class OpenStackMetricsCollector:
         self.metrics_history = {
             'cpu': [],
             'ram': [],
-            'storage': []
         }
 
         # Credenziali OpenStack
@@ -47,10 +46,10 @@ class OpenStackMetricsCollector:
                 identity_api_version="3",
                 region_name="RegionOne"
             )
-            print(f"✅ Connesso a OpenStack: {self.auth_url}")
+            print(f"Connesso a OpenStack: {self.auth_url}")
             return True
         except Exception as e:
-            print(f"❌ Errore connessione OpenStack: {e}")
+            print(f"Errore connessione OpenStack: {e}")
             return False
 
     def get_active_servers_info(self):
@@ -63,7 +62,7 @@ class OpenStackMetricsCollector:
             servers = list(self.conn.compute.servers())
             active_servers = [s for s in servers if s.status == 'ACTIVE']
 
-            print(f"🔍 Server trovati: {len(servers)} totali, {len(active_servers)} attivi")
+            print(f"Server trovati: {len(servers)} totali, {len(active_servers)} attivi")
 
             # Calcola risorse allocate dai flavor
             total_allocated_vcpus = 0
@@ -102,7 +101,7 @@ class OpenStackMetricsCollector:
 
                         # Log informativo invece di errore
                         print(
-                            f"   📋 Server {server.name}: flavor '{flavor_name or 'default'}' -> {flavor_info['vcpus']} vCPU, {flavor_info['ram_mb']}MB RAM")
+                            f"   Server {server.name}: flavor '{flavor_name or 'default'}' -> {flavor_info['vcpus']} vCPU, {flavor_info['ram_mb']}MB RAM")
 
                     flavor_info = self.flavor_cache[flavor_key]
                     total_allocated_vcpus += flavor_info['vcpus']
@@ -110,7 +109,7 @@ class OpenStackMetricsCollector:
 
                 except Exception as e:
                     # Solo log diagnostico, non errore
-                    print(f"   ℹ️  Server {server.name}: usando valori default (1 vCPU, 512MB)")
+                    print(f"   Server {server.name}: usando valori default (1 vCPU, 512MB)")
                     total_allocated_vcpus += 1
                     total_allocated_ram_mb += 512
 
@@ -125,30 +124,8 @@ class OpenStackMetricsCollector:
             }
 
         except Exception as e:
-            print(f"❌ Errore ottenimento server info: {e}")
+            print(f"Errore ottenimento server info: {e}")
             return None
-
-    def get_storage_info(self):
-        """Ottiene informazioni sullo storage"""
-        try:
-            if not self.conn:
-                return 0
-
-            volumes = list(self.conn.block_storage.volumes())
-            total_size_gb = 0
-            active_volumes = 0
-
-            for vol in volumes:
-                if vol.status in ['available', 'in-use']:
-                    total_size_gb += vol.size if vol.size else 0
-                    active_volumes += 1
-
-            print(f"💾 Volumi: {len(volumes)} totali, {active_volumes} attivi, {total_size_gb}GB")
-            return total_size_gb
-
-        except Exception as e:
-            print(f"❌ Errore ottenimento storage: {e}")
-            return 0
 
     def calculate_realistic_usage(self, server_info):
         """Calcola utilizzo realistico basato su server attivi"""
@@ -159,7 +136,7 @@ class OpenStackMetricsCollector:
         allocated_vcpus = server_info['allocated_vcpus']
         allocated_ram_gb = server_info['allocated_ram_gb']
 
-        print(f"📐 Risorse allocate: {allocated_vcpus} vCPUs, {allocated_ram_gb:.1f}GB RAM")
+        print(f"Risorse allocate: {allocated_vcpus} vCPUs, {allocated_ram_gb:.1f}GB RAM")
 
         # BASE: Utilizzo minimo del sistema
         base_cpu_usage = 5.0  # 5% base
@@ -221,7 +198,7 @@ class OpenStackMetricsCollector:
                     return self.collect_mock_metrics()
 
             print("=" * 50)
-            print(f"🔄 Raccolta metriche - {datetime.now().strftime('%H:%M:%S')}")
+            print(f"Raccolta metriche - {datetime.now().strftime('%H:%M:%S')}")
 
             # 1. Ottieni informazioni sui server
             server_info = self.get_active_servers_info()
@@ -229,9 +206,6 @@ class OpenStackMetricsCollector:
             if server_info and server_info['active_count'] >= 0:
                 # 2. Calcola utilizzo realistico
                 usage = self.calculate_realistic_usage(server_info)
-
-                # 3. Ottieni storage
-                storage_gb = self.get_storage_info()
 
                 if usage:
                     timestamp = datetime.now().isoformat()
@@ -253,17 +227,9 @@ class OpenStackMetricsCollector:
                         'allocated_ram_gb': usage['allocated_ram_gb']
                     })
 
-                    self.metrics_history['storage'].append({
-                        'timestamp': timestamp,
-                        'value': storage_gb,
-                        'source': 'openstack',
-                        'active_volumes': storage_gb  # placeholder
-                    })
-
-                    print(f"📈 METRICHE CALCOLATE:")
-                    print(f"   💻 CPU: {usage['cpu_percent']}% ({usage['active_vms']} VM)")
-                    print(f"   🧠 RAM: {usage['ram_percent']}% ({usage['allocated_ram_gb']}GB allocati)")
-                    print(f"   💾 Storage: {storage_gb}GB")
+                    print(f"METRICHE CALCOLATE:")
+                    print(f"   CPU: {usage['cpu_percent']}% ({usage['active_vms']} VM)")
+                    print(f"   RAM: {usage['ram_percent']}% ({usage['allocated_ram_gb']}GB allocati)")
                     print("=" * 50)
 
                     # Mantieni storico limitato
@@ -277,14 +243,14 @@ class OpenStackMetricsCollector:
             return self.collect_mock_metrics()
 
         except Exception as e:
-            print(f"❌ Errore critico nella raccolta: {e}")
+            print(f"Errore critico nella raccolta: {e}")
             import traceback
             traceback.print_exc()
             return self.collect_mock_metrics()
 
     def collect_mock_metrics(self):
         """Genera dati mock realistici"""
-        print("⚠️  Usando dati mock realistici")
+        print("Usando dati mock realistici")
 
         hour = datetime.now().hour
         minute = datetime.now().minute
@@ -313,14 +279,6 @@ class OpenStackMetricsCollector:
             base_cpu = 15 + 5 * random.random()
             base_ram = 25 + 5 * random.random()
 
-        # Storage crescente con variabilità
-        if self.metrics_history['storage']:
-            last_storage = self.metrics_history['storage'][-1]['value']
-            storage_val = last_storage + random.uniform(-0.2, 0.5)
-            storage_val = max(10, storage_val)
-        else:
-            storage_val = random.uniform(20, 60)
-
         timestamp = datetime.now().isoformat()
 
         self.metrics_history['cpu'].append({
@@ -337,14 +295,7 @@ class OpenStackMetricsCollector:
             'active_vms': random.randint(0, 5)
         })
 
-        self.metrics_history['storage'].append({
-            'timestamp': timestamp,
-            'value': round(storage_val, 1),
-            'source': 'mock',
-            'active_volumes': random.randint(1, 10)
-        })
-
-        print(f"🎭 MOCK: CPU={base_cpu:.1f}%, RAM={base_ram:.1f}%, Storage={storage_val:.1f}GB")
+        print(f"MOCK: CPU={base_cpu:.1f}%, RAM={base_ram:.1f}%")
         return True
 
     def start_collection(self):
@@ -365,7 +316,7 @@ class OpenStackMetricsCollector:
 
         thread = threading.Thread(target=collection_loop, daemon=True)
         thread.start()
-        print(f"✅ Collector avviato (intervallo: {self.interval}s)")
+        print(f"Collector avviato (intervallo: {self.interval}s)")
 
     def stop_collection(self):
         """Ferma la raccolta periodica"""
@@ -378,7 +329,7 @@ class OpenStackMetricsCollector:
     def get_current_metrics(self):
         """Restituisce le metriche correnti"""
         current = {}
-        for key in self.metrics_history:
+        for key in ['cpu', 'ram']:
             if self.metrics_history[key]:
                 current[key] = self.metrics_history[key][-1]
             else:
