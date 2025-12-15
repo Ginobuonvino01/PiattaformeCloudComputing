@@ -1,4 +1,3 @@
-# forecasting_plugin/__init__.py
 from .collector import collector
 from .api import app
 
