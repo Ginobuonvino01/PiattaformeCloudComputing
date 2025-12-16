@@ -1,4 +1,4 @@
-#Crea l'API REST con Flask. 5 endpoint per monitorare OpenStack.
+# Crea l'API REST con Flask. 5 endpoint per monitorare OpenStack.
 from flask import Flask, jsonify, request
 from datetime import datetime
 from .collector import collector
@@ -12,14 +12,14 @@ collector.start_collection()
 
 @app.route('/api/v1/health', methods=['GET'])
 def health_check():
-    current = collector.get_current_metrics() # Chiede metriche al collector
+    current = collector.get_current_metrics()  # Chiede metriche al collector
 
     return jsonify({
         'status': 'healthy',
         'service': 'openstack-forecasting-plugin',
         'version': '2.0.0',
         'timestamp': datetime.now().isoformat(),
-        'openstack_connected': collector.conn is not None, # True se connesso
+        'openstack_connected': collector.conn is not None,  # True se connesso
         'metrics': {
             'cpu': current['cpu']['value'] if 'cpu' in current else 0,
             'ram': current['ram']['value'] if 'ram' in current else 0,
@@ -30,19 +30,20 @@ def health_check():
 @app.route('/api/v1/forecast/cpu', methods=['GET'])
 def forecast_cpu():
     try:
-        hours = request.args.get('hours', default=24, type=int) # Prende parametro ?hours=12
-        history = collector.get_metrics_history() # Prende storico
-        values = [m['value'] for m in history['cpu'][-168:]] # Ultime 168 ore (7 giorni)
+        hours = request.args.get('hours', default=24, type=int)
+        history = collector.get_metrics_history()
+        values = [m['value'] for m in history['cpu'][-168:]]  # Ultime 168 ore
 
-        predictor = ResourcePredictor()
-        forecast = predictor.simple_linear_regression(values, hours) #Effettua le previsioni
+        predictor = ResourcePredictor() # Crea un'istanza del predictor (il modello di previsione)
+        forecast = predictor.sinusoidal_with_trend(values, hours) #Usa il modello sinusoidale con trend per generare le previsione
 
         return jsonify({
             'metric': 'cpu_usage_percent',
             'forecast_hours': hours,
-            'predictions': forecast, #Lista le previsioni
+            'predictions': forecast,
             'current_value': values[-1] if values else 0,
             'data_source': 'OpenStack' if collector.conn else 'Mock',
+            'model': 'sinusoidal_with_trend',
             'timestamp': datetime.now().isoformat()
         })
     except Exception as e:
@@ -57,7 +58,7 @@ def forecast_ram():
         values = [m['value'] for m in history['ram'][-168:]]
 
         predictor = ResourcePredictor()
-        forecast = predictor.simple_linear_regression(values, hours)
+        forecast = predictor.sinusoidal_with_trend(values, hours)
 
         return jsonify({
             'metric': 'ram_usage_percent',
@@ -65,6 +66,7 @@ def forecast_ram():
             'predictions': forecast,
             'current_value': values[-1] if values else 0,
             'data_source': 'OpenStack' if collector.conn else 'Mock',
+            'model': 'sinusoidal_with_trend',
             'timestamp': datetime.now().isoformat()
         })
     except Exception as e:
@@ -107,7 +109,7 @@ def get_alerts():
 
 @app.route('/api/v1/openstack/info', methods=['GET'])
 def openstack_info():
-    info = collector.get_openstack_info() # Chiede info dettagliate
+    info = collector.get_openstack_info()  # Chiede info dettagliate
     info['timestamp'] = datetime.now().isoformat()
     return jsonify(info)
 
@@ -142,6 +144,7 @@ def get_current_metrics():
         'timestamp': datetime.now().isoformat()
     })
 
+
 @app.route('/api/v1/metrics/history', methods=['GET'])
 def get_metrics_history():
     limit = request.args.get('limit', default=100, type=int)
@@ -153,10 +156,11 @@ def get_metrics_history():
         'timestamp': datetime.now().isoformat()
     })
 
+
 if __name__ == '__main__':
     print("=" * 60)
     print("OpenStack AI Resource Forecasting Service")
     print(f"Data source: {'OpenStack' if collector.conn else 'Mock data'}")
     print(f"Running on http://0.0.0.0:5000")
     print("=" * 60)
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)

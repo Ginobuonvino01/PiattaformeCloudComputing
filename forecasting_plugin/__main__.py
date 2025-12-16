@@ -2,7 +2,7 @@
 from .api import app
 
 if __name__ == "__main__":
-    # Quando esegui: python -m forecasting_plugin
+    # Quando si esegue: python -m forecasting_plugin
     print("=" * 60)
     print("OpenStack AI Resource Forecasting Service")
     print("=" * 60)
