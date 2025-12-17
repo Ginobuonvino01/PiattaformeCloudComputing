@@ -1,4 +1,14 @@
 # Crea l'API REST con Flask. 5 endpoint per monitorare OpenStack.
+import os
+import sys
+
+# ===== FORZA PRODUCTION MODE =====
+# Disabilita COMPLETAMENTE il debug/reload di Flask
+os.environ['FLASK_ENV'] = 'production'
+os.environ['FLASK_DEBUG'] = '0'
+sys.dont_write_bytecode = True  # No .pyc files
+# =================================
+
 from flask import Flask, jsonify, request
 from datetime import datetime
 from .collector import collector
@@ -6,12 +16,18 @@ from .predictor import ResourcePredictor
 
 app = Flask(__name__)
 
-# Avvia il collector UNA SOLA VOLTA usando una variabile globale
+# Variabile globale per tracciare se il collector è già stato avviato
 _COLLECTOR_STARTED = False
 
-if not _COLLECTOR_STARTED and not collector.running:
-    collector.start_collection()
-    _COLLECTOR_STARTED = True
+# Avvia il collector SOLO se non è già in esecuzione
+if not _COLLECTOR_STARTED:
+    if not collector.running:
+        collector.start_collection()
+        _COLLECTOR_STARTED = True
+        print(f"🚀 Collector avviato dal modulo API")
+    else:
+        print(f"ℹ️  Collector già in esecuzione (non riavviato)")
+
 
 @app.route('/api/v1/health', methods=['GET'])
 def health_check():
@@ -37,8 +53,8 @@ def forecast_cpu():
         history = collector.get_metrics_history()
         values = [m['value'] for m in history['cpu'][-168:]]  # Ultime 168 ore
 
-        predictor = ResourcePredictor() # Crea un'istanza del predictor (il modello di previsione)
-        forecast = predictor.sinusoidal_with_trend(values, hours) #Usa il modello sinusoidale con trend per generare le previsione
+        predictor = ResourcePredictor()  # Crea un'istanza del predictor
+        forecast = predictor.sinusoidal_with_trend(values, hours)
 
         return jsonify({
             'metric': 'cpu_usage_percent',
@@ -160,10 +176,37 @@ def get_metrics_history():
     })
 
 
+# ===== FUNZIONE PER AVVIARE L'APP =====
+def run_app():
+    """Funzione per avviare l'applicazione Flask"""
+    print("\n" + "=" * 60)
+    print("🚀 OPENSTACK AI FORECASTING SERVICE")
+    print("=" * 60)
+    print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"📡 Data source: {'✅ OpenStack' if collector.conn else '🤖 Mock data'}")
+    print(f"🔗 API: http://0.0.0.0:5000")
+    print(f"⏱️  Collector interval: {collector.interval}s")
+    print("=" * 60)
+    print("🌐 Endpoints disponibili:")
+    print("  • GET  /api/v1/health")
+    print("  • GET  /api/v1/forecast/cpu?hours=24")
+    print("  • GET  /api/v1/forecast/ram?hours=24")
+    print("  • GET  /api/v1/alerts")
+    print("  • GET  /api/v1/metrics/current")
+    print("  • GET  /api/v1/openstack/info")
+    print("=" * 60 + "\n")
+
+    # Avvia Flask SENZA DEBUG e SENZA RELOADER
+    app.run(
+        host='0.0.0.0',
+        port=5000,
+        debug=False,  # ASSOLUTAMENTE NO DEBUG
+        use_reloader=False,  # ASSOLUTAMENTE NO RELOAD
+        threaded=True
+    )
+
+
+# Questo blocco NON verrà eseguito quando importi il modulo
+# Serve solo se esegui direttamente python api.py
 if __name__ == '__main__':
-    print("=" * 60)
-    print("OpenStack AI Resource Forecasting Service")
-    print(f"Data source: {'OpenStack' if collector.conn else 'Mock data'}")
-    print(f"Running on http://0.0.0.0:5000")
-    print("=" * 60)
-    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+    run_app()

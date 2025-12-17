@@ -9,18 +9,17 @@ from openstack import connection
 class OpenStackMetricsCollector:
     """Raccoglie metriche reali da OpenStack Nova e Cinder"""
 
-    # Variabile di classe per Singleton
+    # Singleton pattern per avere una sola istanza
     _instance = None
-    _initialized = False
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             cls._instance = super(OpenStackMetricsCollector, cls).__new__(cls)
+            cls._instance._initialized = False
         return cls._instance
 
     def __init__(self, interval=60):
-        # Se già inizializzato, non fare nulla
-        if OpenStackMetricsCollector._initialized:
+        if getattr(self, '_initialized', False):
             return
 
         self.interval = interval  # Ogni 60 secondi
@@ -45,7 +44,7 @@ class OpenStackMetricsCollector:
         self.flavor_cache = {}
         self.last_server_count = 0
 
-        OpenStackMetricsCollector._initialized = True
+        self._initialized = True
 
     def connect(self):
         """Stabilisce la connessione a OpenStack"""
@@ -60,10 +59,10 @@ class OpenStackMetricsCollector:
                 identity_api_version="3",
                 region_name="RegionOne"
             )
-            print(f"Connesso a OpenStack: {self.auth_url}")
+            print(f"✅ Connesso a OpenStack: {self.auth_url}")
             return True
         except Exception as e:
-            print(f"Errore connessione OpenStack: {e}")
+            print(f"❌ Errore connessione OpenStack: {e}")
             return False
 
     def get_active_servers_info(self):
@@ -76,7 +75,7 @@ class OpenStackMetricsCollector:
             servers = list(self.conn.compute.servers())
             active_servers = [s for s in servers if s.status == 'ACTIVE']  # Filtra solo quelle ACTIVE
 
-            print(f"Server trovati: {len(servers)} totali, {len(active_servers)} attivi")
+            print(f"📊 Server trovati: {len(servers)} totali, {len(active_servers)} attivi")
 
             # Per ogni VM attiva, calcola risorse
             total_allocated_vcpus = 0
@@ -114,7 +113,7 @@ class OpenStackMetricsCollector:
                         self.flavor_cache[flavor_key] = flavor_info
 
                         print(
-                            f"   Server {server.name}: flavor '{flavor_name or 'default'}' -> {flavor_info['vcpus']} vCPU, {flavor_info['ram_mb']}MB RAM")
+                            f"   📍 Server {server.name}: flavor '{flavor_name or 'default'}' -> {flavor_info['vcpus']} vCPU, {flavor_info['ram_mb']}MB RAM")
 
                     flavor_info = self.flavor_cache[flavor_key]
                     # Somma risorse
@@ -123,7 +122,7 @@ class OpenStackMetricsCollector:
 
                 except Exception as e:
                     # Solo errore, usa valori default
-                    print(f"   Server {server.name}: usando valori default (1 vCPU, 512MB)")
+                    print(f"   ⚠️  Server {server.name}: usando valori default (1 vCPU, 512MB)")
                     total_allocated_vcpus += 1
                     total_allocated_ram_mb += 512
 
@@ -138,7 +137,7 @@ class OpenStackMetricsCollector:
             }
 
         except Exception as e:
-            print(f"Errore ottenimento server info: {e}")
+            print(f"❌ Errore ottenimento server info: {e}")
             return None
 
     def calculate_realistic_usage(self, server_info):
@@ -150,7 +149,7 @@ class OpenStackMetricsCollector:
         allocated_vcpus = server_info['allocated_vcpus']
         allocated_ram_gb = server_info['allocated_ram_gb']
 
-        print(f"Risorse allocate: {allocated_vcpus} vCPUs, {allocated_ram_gb:.1f}GB RAM")
+        print(f"📈 Risorse allocate: {allocated_vcpus} vCPUs, {allocated_ram_gb:.1f}GB RAM")
 
         # BASE: Utilizzo minimo del sistema
         base_cpu_usage = 5.0  # 5% base
@@ -204,9 +203,9 @@ class OpenStackMetricsCollector:
         }
 
     def collect_once(self):
-        """Raccolta principale delle metriche"""
+        """Raccolta principale delle metriche - UNA SOLA VOLTA"""
         try:
-            # Se non siamo in esecuzione, esci subito
+            # Controllo di sicurezza: se non siamo in esecuzione, esci
             if not self.running:
                 return False
 
@@ -215,8 +214,8 @@ class OpenStackMetricsCollector:
                 if not self.connect():
                     return self.collect_mock_metrics()  # Fallback a mock
 
-            print("=" * 50)
-            print(f"Raccolta metriche - {datetime.now().strftime('%H:%M:%S')}")
+            print("\n" + "=" * 50)
+            print(f"🔄 Raccolta metriche - {datetime.now().strftime('%H:%M:%S')}")
 
             # 1. Ottieni informazioni sui server
             server_info = self.get_active_servers_info()
@@ -245,9 +244,9 @@ class OpenStackMetricsCollector:
                         'allocated_ram_gb': usage['allocated_ram_gb']
                     })
 
-                    print(f"METRICHE CALCOLATE:")
-                    print(f"   CPU: {usage['cpu_percent']}% ({usage['active_vms']} VM)")
-                    print(f"   RAM: {usage['ram_percent']}% ({usage['allocated_ram_gb']}GB allocati)")
+                    print(f"📊 METRICHE CALCOLATE:")
+                    print(f"   💻 CPU: {usage['cpu_percent']}% ({usage['active_vms']} VM)")
+                    print(f"   🧠 RAM: {usage['ram_percent']}% ({usage['allocated_ram_gb']}GB allocati)")
                     print("=" * 50)
 
                     # Mantieni storico limitato
@@ -261,18 +260,18 @@ class OpenStackMetricsCollector:
             return self.collect_mock_metrics()
 
         except Exception as e:
-            print(f"Errore critico nella raccolta: {e}")
+            print(f"❌ Errore critico nella raccolta: {e}")
             import traceback
             traceback.print_exc()
             return self.collect_mock_metrics()
 
     def collect_mock_metrics(self):
         """Genera dati mock realistici"""
-        # Se non siamo in esecuzione, esci
+        # Controllo di sicurezza
         if not self.running:
             return False
 
-        print("Usando dati mock realistici")
+        print("⚠️  Usando dati mock realistici")
 
         hour = datetime.now().hour
         minute = datetime.now().minute
@@ -317,13 +316,13 @@ class OpenStackMetricsCollector:
             'active_vms': random.randint(0, 5)
         })
 
-        print(f"MOCK: CPU={base_cpu:.1f}%, RAM={base_ram:.1f}%")
+        print(f"🤖 MOCK: CPU={base_cpu:.1f}%, RAM={base_ram:.1f}%")
         return True
 
     def start_collection(self):
-        """Avvia la raccolta periodica"""
+        """Avvia la raccolta periodica - UNA SOLA VOLTA"""
         if self.running:
-            print(f"⚠️ Collector GIÀ in esecuzione")
+            print(f"⚠️  Collector GIÀ in esecuzione (intervallo: {self.interval}s)")
             return
 
         self.running = True
@@ -336,14 +335,17 @@ class OpenStackMetricsCollector:
             # Poi continua con intervallo
             while self.running:
                 time.sleep(self.interval)  # Aspetta 60 secondi
-                self.collect_once()  # Raccogli
+                self.collect_once()  # Raccogli UNA volta
 
         thread = threading.Thread(target=collection_loop, daemon=True)
+        thread.name = "ForecastingCollectorThread"
         thread.start()
 
     def stop_collection(self):
         """Ferma la raccolta periodica"""
-        self.running = False
+        if self.running:
+            self.running = False
+            print("🛑 Collector fermato")
 
     def get_metrics_history(self):
         """Restituisce lo storico"""
@@ -419,5 +421,5 @@ class OpenStackMetricsCollector:
             }
 
 
-# Istanza globale - sarà sempre la stessa grazie al Singleton
+# Istanza globale SINGLETON
 collector = OpenStackMetricsCollector(interval=60)  # 1 minuto
