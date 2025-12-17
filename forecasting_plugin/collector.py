@@ -65,6 +65,7 @@ class OpenStackMetricsCollector:
             print(f"❌ Errore connessione OpenStack: {e}")
             return False
 
+    #Interroga OpenStack per ottenere lista VM e risorse allocate
     def get_active_servers_info(self):
         """Ottiene informazioni sui server attivi e risorse allocate"""
         try:
@@ -140,6 +141,7 @@ class OpenStackMetricsCollector:
             print(f"❌ Errore ottenimento server info: {e}")
             return None
 
+    #Trasforma i conteggi VM in percentuali di utilizzo realistiche
     def calculate_realistic_usage(self, server_info):
         """Calcola utilizzo realistico basato su server attivi"""
         if not server_info:
@@ -202,6 +204,7 @@ class OpenStackMetricsCollector:
             'allocated_ram_gb': round(allocated_ram_gb, 1)
         }
 
+    #Esegue un ciclo completo di raccolta dati
     def collect_once(self):
         """Raccolta principale delle metriche - UNA SOLA VOLTA"""
         try:

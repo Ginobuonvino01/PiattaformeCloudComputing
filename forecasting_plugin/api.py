@@ -4,8 +4,8 @@ import sys
 
 # ===== FORZA PRODUCTION MODE =====
 # Disabilita COMPLETAMENTE il debug/reload di Flask
-os.environ['FLASK_ENV'] = 'production'
-os.environ['FLASK_DEBUG'] = '0'
+os.environ['FLASK_ENV'] = 'production' # Dice a Flask: "siamo in produzione"
+os.environ['FLASK_DEBUG'] = '0' # Dice a Flask: "debug disattivato"
 sys.dont_write_bytecode = True  # No .pyc files
 # =================================
 
@@ -28,7 +28,7 @@ if not _COLLECTOR_STARTED:
     else:
         print(f"ℹ️  Collector già in esecuzione (non riavviato)")
 
-
+#Controllare se il servizio è attivo e connesso a OpenStack
 @app.route('/api/v1/health', methods=['GET'])
 def health_check():
     current = collector.get_current_metrics()  # Chiede metriche al collector
@@ -45,7 +45,7 @@ def health_check():
         }
     })
 
-
+#Prevedere l'utilizzo CPU per le prossime X ore
 @app.route('/api/v1/forecast/cpu', methods=['GET'])
 def forecast_cpu():
     try:
@@ -68,7 +68,7 @@ def forecast_cpu():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
+#Prevedere l'utilizzo RAM per le prossime X ore
 @app.route('/api/v1/forecast/ram', methods=['GET'])
 def forecast_ram():
     try:
@@ -91,7 +91,7 @@ def forecast_ram():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
+#Mostrare alert se CPU/RAM superano le soglie critiche
 @app.route('/api/v1/alerts', methods=['GET'])
 def get_alerts():
     alerts = []
@@ -125,7 +125,7 @@ def get_alerts():
         'timestamp': datetime.now().isoformat()
     })
 
-
+# Informazioni dettagliate sulla connessione OpenStack
 @app.route('/api/v1/openstack/info', methods=['GET'])
 def openstack_info():
     info = collector.get_openstack_info()  # Chiede info dettagliate
@@ -133,26 +133,7 @@ def openstack_info():
     return jsonify(info)
 
 
-@app.route('/api/v1/debug/collect-now', methods=['POST'])
-def debug_collect_now():
-    """Forza una raccolta immediata delle metriche (debug)"""
-    success = collector.collect_once()
-    current = collector.get_current_metrics()
-
-    return jsonify({
-        'success': success,
-        'timestamp': datetime.now().isoformat(),
-        'metrics': {
-            'cpu': current['cpu']['value'] if 'cpu' in current else 0,
-            'ram': current['ram']['value'] if 'ram' in current else 0,
-            'storage': current['storage']['value'] if 'storage' in current else 0,
-            'source_cpu': current['cpu']['source'] if 'cpu' in current else 'none',
-            'source_ram': current['ram']['source'] if 'ram' in current else 'none',
-            'source_storage': current['storage']['source'] if 'storage' in current else 'none'
-        }
-    })
-
-
+#Solo le metriche attuali (senza info extra)
 @app.route('/api/v1/metrics/current', methods=['GET'])
 def get_current_metrics():
     current = collector.get_current_metrics()
@@ -163,7 +144,7 @@ def get_current_metrics():
         'timestamp': datetime.now().isoformat()
     })
 
-
+#Metriche storiche
 @app.route('/api/v1/metrics/history', methods=['GET'])
 def get_metrics_history():
     limit = request.args.get('limit', default=100, type=int)
