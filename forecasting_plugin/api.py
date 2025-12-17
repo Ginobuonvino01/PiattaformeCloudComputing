@@ -6,9 +6,12 @@ from .predictor import ResourcePredictor
 
 app = Flask(__name__)
 
-# Avvia il collector
-collector.start_collection()
+# Avvia il collector UNA SOLA VOLTA usando una variabile globale
+_COLLECTOR_STARTED = False
 
+if not _COLLECTOR_STARTED and not collector.running:
+    collector.start_collection()
+    _COLLECTOR_STARTED = True
 
 @app.route('/api/v1/health', methods=['GET'])
 def health_check():

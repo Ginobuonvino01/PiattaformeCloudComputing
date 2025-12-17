@@ -9,10 +9,23 @@ from openstack import connection
 class OpenStackMetricsCollector:
     """Raccoglie metriche reali da OpenStack Nova e Cinder"""
 
+    # Variabile di classe per Singleton
+    _instance = None
+    _initialized = False
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(OpenStackMetricsCollector, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self, interval=60):
-        self.interval = interval #Ogni 60 secondi
+        # Se già inizializzato, non fare nulla
+        if OpenStackMetricsCollector._initialized:
+            return
+
+        self.interval = interval  # Ogni 60 secondi
         self.running = False
-        self.conn = None #Connessione OpenStack
+        self.conn = None  # Connessione OpenStack
         self.metrics_history = {
             'cpu': [],
             'ram': [],
@@ -31,6 +44,8 @@ class OpenStackMetricsCollector:
         # Cache per performance
         self.flavor_cache = {}
         self.last_server_count = 0
+
+        OpenStackMetricsCollector._initialized = True
 
     def connect(self):
         """Stabilisce la connessione a OpenStack"""
@@ -57,9 +72,9 @@ class OpenStackMetricsCollector:
             if not self.conn:
                 return None
 
-            #Prende tutte le VM da OpenStack
+            # Prende tutte le VM da OpenStack
             servers = list(self.conn.compute.servers())
-            active_servers = [s for s in servers if s.status == 'ACTIVE'] #Filtra solo quelle ACTIVE
+            active_servers = [s for s in servers if s.status == 'ACTIVE']  # Filtra solo quelle ACTIVE
 
             print(f"Server trovati: {len(servers)} totali, {len(active_servers)} attivi")
 
@@ -98,7 +113,6 @@ class OpenStackMetricsCollector:
                         flavor_info = flavor_map.get(flavor_name, flavor_map['m1.tiny'])
                         self.flavor_cache[flavor_key] = flavor_info
 
-                        # Log informativo invece di errore
                         print(
                             f"   Server {server.name}: flavor '{flavor_name or 'default'}' -> {flavor_info['vcpus']} vCPU, {flavor_info['ram_mb']}MB RAM")
 
@@ -132,7 +146,7 @@ class OpenStackMetricsCollector:
         if not server_info:
             return None
 
-        active_count = server_info['active_count'] #Numero VM attive
+        active_count = server_info['active_count']  # Numero VM attive
         allocated_vcpus = server_info['allocated_vcpus']
         allocated_ram_gb = server_info['allocated_ram_gb']
 
@@ -192,10 +206,14 @@ class OpenStackMetricsCollector:
     def collect_once(self):
         """Raccolta principale delle metriche"""
         try:
+            # Se non siamo in esecuzione, esci subito
+            if not self.running:
+                return False
+
             # Prova connessione
             if not self.conn:
                 if not self.connect():
-                    return self.collect_mock_metrics() # Fallback a mock
+                    return self.collect_mock_metrics()  # Fallback a mock
 
             print("=" * 50)
             print(f"Raccolta metriche - {datetime.now().strftime('%H:%M:%S')}")
@@ -250,6 +268,10 @@ class OpenStackMetricsCollector:
 
     def collect_mock_metrics(self):
         """Genera dati mock realistici"""
+        # Se non siamo in esecuzione, esci
+        if not self.running:
+            return False
+
         print("Usando dati mock realistici")
 
         hour = datetime.now().hour
@@ -301,9 +323,11 @@ class OpenStackMetricsCollector:
     def start_collection(self):
         """Avvia la raccolta periodica"""
         if self.running:
+            print(f"⚠️ Collector GIÀ in esecuzione")
             return
 
         self.running = True
+        print(f"✅ Collector AVVIATO (intervallo: {self.interval}s)")
 
         def collection_loop():
             # Prima raccolta immediata
@@ -311,12 +335,11 @@ class OpenStackMetricsCollector:
 
             # Poi continua con intervallo
             while self.running:
-                time.sleep(self.interval) #Aspetta 60 secondi
-                self.collect_once() #Raccogli
+                time.sleep(self.interval)  # Aspetta 60 secondi
+                self.collect_once()  # Raccogli
 
         thread = threading.Thread(target=collection_loop, daemon=True)
         thread.start()
-        print(f"Collector avviato (intervallo: {self.interval}s)")
 
     def stop_collection(self):
         """Ferma la raccolta periodica"""
@@ -396,5 +419,5 @@ class OpenStackMetricsCollector:
             }
 
 
-# Istanza globale
+# Istanza globale - sarà sempre la stessa grazie al Singleton
 collector = OpenStackMetricsCollector(interval=60)  # 1 minuto
