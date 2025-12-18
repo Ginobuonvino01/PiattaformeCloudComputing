@@ -24,9 +24,9 @@ if not _COLLECTOR_STARTED:
     if not collector.running:
         collector.start_collection()
         _COLLECTOR_STARTED = True
-        print(f"🚀 Collector avviato dal modulo API")
+        print(f"Collector avviato dal modulo API")
     else:
-        print(f"ℹ️  Collector già in esecuzione (non riavviato)")
+        print(f"Collector già in esecuzione (non riavviato)")
 
 #Controllare se il servizio è attivo e connesso a OpenStack
 @app.route('/api/v1/health', methods=['GET'])
@@ -161,14 +161,14 @@ def get_metrics_history():
 def run_app():
     """Funzione per avviare l'applicazione Flask"""
     print("\n" + "=" * 60)
-    print("🚀 OPENSTACK AI FORECASTING SERVICE")
+    print("OPENSTACK AI FORECASTING SERVICE")
     print("=" * 60)
-    print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"📡 Data source: {'✅ OpenStack' if collector.conn else '🤖 Mock data'}")
-    print(f"🔗 API: http://0.0.0.0:5000")
-    print(f"⏱️  Collector interval: {collector.interval}s")
+    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Data source: {'✅ OpenStack' if collector.conn else '🤖 Mock data'}")
+    print(f"API: http://0.0.0.0:5000")
+    print(f"Collector interval: {collector.interval}s")
     print("=" * 60)
-    print("🌐 Endpoints disponibili:")
+    print("Endpoints disponibili:")
     print("  • GET  /api/v1/health")
     print("  • GET  /api/v1/forecast/cpu?hours=24")
     print("  • GET  /api/v1/forecast/ram?hours=24")

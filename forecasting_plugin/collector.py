@@ -59,10 +59,10 @@ class OpenStackMetricsCollector:
                 identity_api_version="3",
                 region_name="RegionOne"
             )
-            print(f"✅ Connesso a OpenStack: {self.auth_url}")
+            print(f"Connesso a OpenStack: {self.auth_url}")
             return True
         except Exception as e:
-            print(f"❌ Errore connessione OpenStack: {e}")
+            print(f"Errore connessione OpenStack: {e}")
             return False
 
     #Interroga OpenStack per ottenere lista VM e risorse allocate
@@ -76,7 +76,7 @@ class OpenStackMetricsCollector:
             servers = list(self.conn.compute.servers())
             active_servers = [s for s in servers if s.status == 'ACTIVE']  # Filtra solo quelle ACTIVE
 
-            print(f"📊 Server trovati: {len(servers)} totali, {len(active_servers)} attivi")
+            print(f"Server trovati: {len(servers)} totali, {len(active_servers)} attivi")
 
             # Per ogni VM attiva, calcola risorse
             total_allocated_vcpus = 0
@@ -123,7 +123,7 @@ class OpenStackMetricsCollector:
 
                 except Exception as e:
                     # Solo errore, usa valori default
-                    print(f"   ⚠️  Server {server.name}: usando valori default (1 vCPU, 512MB)")
+                    print(f"Server {server.name}: usando valori default (1 vCPU, 512MB)")
                     total_allocated_vcpus += 1
                     total_allocated_ram_mb += 512
 
@@ -138,7 +138,7 @@ class OpenStackMetricsCollector:
             }
 
         except Exception as e:
-            print(f"❌ Errore ottenimento server info: {e}")
+            print(f"Errore ottenimento server info: {e}")
             return None
 
     #Trasforma i conteggi VM in percentuali di utilizzo realistiche
@@ -151,7 +151,7 @@ class OpenStackMetricsCollector:
         allocated_vcpus = server_info['allocated_vcpus']
         allocated_ram_gb = server_info['allocated_ram_gb']
 
-        print(f"📈 Risorse allocate: {allocated_vcpus} vCPUs, {allocated_ram_gb:.1f}GB RAM")
+        print(f"Risorse allocate: {allocated_vcpus} vCPUs, {allocated_ram_gb:.1f}GB RAM")
 
         # BASE: Utilizzo minimo del sistema
         base_cpu_usage = 5.0  # 5% base
@@ -218,7 +218,7 @@ class OpenStackMetricsCollector:
                     return self.collect_mock_metrics()  # Fallback a mock
 
             print("\n" + "=" * 50)
-            print(f"🔄 Raccolta metriche - {datetime.now().strftime('%H:%M:%S')}")
+            print(f"Raccolta metriche - {datetime.now().strftime('%H:%M:%S')}")
 
             # 1. Ottieni informazioni sui server
             server_info = self.get_active_servers_info()
@@ -247,9 +247,9 @@ class OpenStackMetricsCollector:
                         'allocated_ram_gb': usage['allocated_ram_gb']
                     })
 
-                    print(f"📊 METRICHE CALCOLATE:")
-                    print(f"   💻 CPU: {usage['cpu_percent']}% ({usage['active_vms']} VM)")
-                    print(f"   🧠 RAM: {usage['ram_percent']}% ({usage['allocated_ram_gb']}GB allocati)")
+                    print(f"METRICHE CALCOLATE:")
+                    print(f"CPU: {usage['cpu_percent']}% ({usage['active_vms']} VM)")
+                    print(f"RAM: {usage['ram_percent']}% ({usage['allocated_ram_gb']}GB allocati)")
                     print("=" * 50)
 
                     # Mantieni storico limitato
@@ -263,7 +263,7 @@ class OpenStackMetricsCollector:
             return self.collect_mock_metrics()
 
         except Exception as e:
-            print(f"❌ Errore critico nella raccolta: {e}")
+            print(f"Errore critico nella raccolta: {e}")
             import traceback
             traceback.print_exc()
             return self.collect_mock_metrics()
@@ -274,7 +274,7 @@ class OpenStackMetricsCollector:
         if not self.running:
             return False
 
-        print("⚠️  Usando dati mock realistici")
+        print("Usando dati mock realistici")
 
         hour = datetime.now().hour
         minute = datetime.now().minute
@@ -319,17 +319,17 @@ class OpenStackMetricsCollector:
             'active_vms': random.randint(0, 5)
         })
 
-        print(f"🤖 MOCK: CPU={base_cpu:.1f}%, RAM={base_ram:.1f}%")
+        print(f"MOCK: CPU={base_cpu:.1f}%, RAM={base_ram:.1f}%")
         return True
 
     def start_collection(self):
         """Avvia la raccolta periodica - UNA SOLA VOLTA"""
         if self.running:
-            print(f"⚠️  Collector GIÀ in esecuzione (intervallo: {self.interval}s)")
+            print(f"Collector GIÀ in esecuzione (intervallo: {self.interval}s)")
             return
 
         self.running = True
-        print(f"✅ Collector AVVIATO (intervallo: {self.interval}s)")
+        print(f"Collector AVVIATO (intervallo: {self.interval}s)")
 
         def collection_loop():
             # Prima raccolta immediata
@@ -348,7 +348,7 @@ class OpenStackMetricsCollector:
         """Ferma la raccolta periodica"""
         if self.running:
             self.running = False
-            print("🛑 Collector fermato")
+            print("Collector fermato")
 
     def get_metrics_history(self):
         """Restituisce lo storico"""
